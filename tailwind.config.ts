@@ -21,6 +21,10 @@ export default {
     },
     extend: {
       colors: {
+        teal: { 950: '#042F2E', 900: '#134E4A', 800: '#115E59', 700: '#0F766E', 600: '#0D9488', 500: '#14B8A6', 400: '#2DD4BF', 300: '#5EEAD4', 200: '#99F6E4', 100: '#CCFBF1', 50: '#F0FDFA' },
+        coral: { 700: '#BE123C', 600: '#E11D48', 500: '#F43F5E', 400: '#FB7185', 300: '#FDA4AF', 200: '#FECDD3', 100: '#FFE4E6', 50: '#FFF1F2' },
+        cream: '#FAFAF8',
+        ink: '#0F1F1E',
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',

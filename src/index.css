@@ -7,16 +7,16 @@
 
 @layer base {
   :root {
-    --background: 210 40% 98%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 60 14% 98%;
+    --foreground: 176 35% 9%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 176 35% 9%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 176 35% 9%;
 
-    --primary: 221 83% 53%;
+    --primary: 175 77% 26%;
     --primary-foreground: 210 40% 98%;
 
     --secondary: 210 40% 96.1%;
@@ -103,6 +103,37 @@
 
 .markdown-editor {
   @apply font-mono text-base leading-relaxed;
+}
+
+@keyframes listen-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(251, 113, 133, 0.55); }
+  70% { box-shadow: 0 0 0 16px rgba(251, 113, 133, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(251, 113, 133, 0); }
+}
+.listen-pulse { animation: listen-pulse 1.6s infinite; }
+
+@keyframes thread-flow {
+  from { stroke-dashoffset: 40; }
+  to { stroke-dashoffset: 0; }
+}
+.thread-flow { stroke-dasharray: 6 6; animation: thread-flow 1.2s linear infinite; }
+
+@keyframes float-y {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+.float-y { animation: float-y 6s ease-in-out infinite; }
+
+@keyframes reveal-bar {
+  from { width: 0; }
+}
+.reveal-bar { animation: reveal-bar 0.9s cubic-bezier(.2,.8,.2,1); }
+
+@keyframes caret-blink { 50% { opacity: 0; } }
+.caret::after { content: '▍'; margin-left: 2px; animation: caret-blink 1s step-end infinite; color: #0F766E; }
+
+@media print {
+  .no-print { display: none !important; }
 }
 
 .markdown-preview {

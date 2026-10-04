@@ -7,17 +7,22 @@ import type { Role, UserProfile } from '@/lib/types';
 
 type AuthMode = 'signin' | 'signup';
 
+interface SignUpArgs { email: string; password: string; fullName: string; role: Role; organization?: string }
+
 interface AuthCtx {
   user: User | null;
   profile: UserProfile | null;
   roleDef: RoleDef | undefined;
+  /** True when signed in but an admin has not approved the account yet (or declined it). */
+  isPendingApproval: boolean;
+  isAdmin: boolean;
   loading: boolean;
   authOpen: boolean;
   authMode: AuthMode;
   openAuth: (mode?: AuthMode) => void;
   closeAuth: () => void;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (args: { email: string; password: string; fullName: string; role: Role }) => Promise<{ needsConfirmation: boolean }>;
+  signUp: (args: SignUpArgs) => Promise<{ needsConfirmation: boolean }>;
   signOut: () => Promise<void>;
   reloadProfile: () => Promise<void>;
 }
@@ -37,8 +42,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       let p = await fetchMyProfile(u.id);
       if (!p) {
-        const meta = (u.user_metadata ?? {}) as { role?: Role; full_name?: string };
-        p = await ensureProfile(meta.role ?? 'patient', meta.full_name ?? '', u.email ?? '');
+        const meta = (u.user_metadata ?? {}) as { role?: Role; full_name?: string; organization?: string };
+        p = await ensureProfile(meta.role ?? 'patient', meta.full_name ?? '', u.email ?? '', meta.organization);
       }
       setProfile(p);
     } catch (e) {
@@ -70,15 +75,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (error) throw new Error(error.message);
   };
 
-  const signUp = async ({ email, password, fullName, role }: { email: string; password: string; fullName: string; role: Role }) => {
+  const signUp = async ({ email, password, fullName, role, organization }: SignUpArgs) => {
     const { data, error } = await supabase.auth.signUp({
       email, password,
-      options: { data: { full_name: fullName, role } },
+      options: { data: { full_name: fullName, role, organization: organization || undefined } },
     });
     if (error) throw new Error(error.message);
     if (data.session?.user) {
       try {
-        const p = await ensureProfile(role, fullName, email);
+        const p = await ensureProfile(role, fullName, email, organization);
         setProfile(p);
       } catch (e) {
         throw new Error(errMsg(e));
@@ -95,7 +100,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const value = useMemo<AuthCtx>(() => ({
-    user, profile, roleDef: roleById(profile?.role), loading, authOpen, authMode,
+    user, profile, roleDef: roleById(profile?.role),
+    isPendingApproval: !!profile && !profile.approved,
+    isAdmin: !!profile && profile.role === 'admin' && profile.approved,
+    loading, authOpen, authMode,
     openAuth: (mode = 'signin') => { setAuthMode(mode); setAuthOpen(true); },
     closeAuth: () => setAuthOpen(false),
     signIn, signUp, signOut,

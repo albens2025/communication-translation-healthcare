@@ -1,8 +1,8 @@
 import React from 'react';
-import { MessageSquareText, Binary, Scale, Receipt, ArrowUpRight, CalendarDays, Lock } from 'lucide-react';
+import { MessageSquareText, Binary, Scale, Receipt, ArrowUpRight, CalendarDays, Lock, ShieldCheck } from 'lucide-react';
 import { useCare } from '@/context/CareContext';
 import { useAuth } from '@/context/AuthContext';
-import { BOOKING_URL, CHANNELS, PATHWAYS, ROLES } from '@/data/constants';
+import { BOOKING_URL, CHANNELS, PATHWAYS, SIGNUP_ROLES } from '@/data/constants';
 import { money } from '@/lib/api';
 import { PatientAvatar } from '../shared';
 import SignupForm from '../SignupForm';
@@ -102,11 +102,12 @@ export const PatientsSection: React.FC = () => {
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-coral-500">Role-based access</p>
           <h2 className="mt-2 text-3xl md:text-4xl font-semibold tracking-tight text-ink max-w-2xl">Everyone sees exactly what they should — nothing more.</h2>
           <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {ROLES.map((r) => (
+            {SIGNUP_ROLES.map((r) => (
               <div key={r.id} className="rounded-3xl border border-stone-200 bg-cream p-5">
                 <div className="flex items-center gap-2">
                   {r.seesCodes ? <Binary className="h-4 w-4 text-teal-700" /> : <Lock className="h-4 w-4 text-coral-500" />}
                   <p className="font-semibold text-ink">{r.label}</p>
+                  {r.requiresApproval && <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-800 px-2 py-0.5 text-[10px] font-semibold"><ShieldCheck className="h-3 w-3" /> Admin-approved</span>}
                 </div>
                 <p className="mt-2 text-sm text-stone-600">{r.blurb}</p>
                 <p className="mt-3 font-mono text-[11px] text-stone-500">{r.seesCodes ? 'ICD-10 / CPT visible' : 'Codes hidden by database policy'}</p>
@@ -118,6 +119,8 @@ export const PatientsSection: React.FC = () => {
               <button onClick={() => openAuth('signup')} className="rounded-full bg-teal-700 hover:bg-teal-800 text-white px-6 py-3 text-sm font-semibold">Create an account</button>
               <button onClick={() => openAuth('signin')} className="rounded-full border border-stone-200 bg-white px-6 py-3 text-sm font-semibold hover:border-teal-700/40">Sign in</button>
             </div>
+          ) : profile.role === 'admin' ? (
+            <button onClick={() => setView('admin')} className="mt-8 inline-flex items-center gap-2 rounded-full bg-teal-700 hover:bg-teal-800 text-white px-6 py-3 text-sm font-semibold"><ShieldCheck className="h-4 w-4" /> Review account approvals</button>
           ) : (
             <p className="mt-8 text-sm text-stone-600">No one is linked to your account yet. Use the account menu to link by share code or load the demo panel.</p>
           )}

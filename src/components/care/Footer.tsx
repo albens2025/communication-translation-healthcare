@@ -19,7 +19,7 @@ const Footer: React.FC = () => {
         <div className="lg:col-span-2">
           <h4 className="text-sm font-semibold mb-4">Product</h4>
           <ul className="space-y-2 text-sm text-teal-100/70">
-            {NAV.map((n) => (
+            {NAV.filter((n) => n.id !== 'admin').map((n) => (
               <li key={n.id}><button onClick={() => setView(n.id)} className="hover:text-white">{n.label}</button></li>
             ))}
           </ul>

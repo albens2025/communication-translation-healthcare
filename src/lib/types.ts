@@ -1,4 +1,4 @@
-export type Role = 'patient' | 'caregiver' | 'clinician' | 'care_manager' | 'payer' | 'employer';
+export type Role = 'patient' | 'caregiver' | 'clinician' | 'care_manager' | 'payer' | 'employer' | 'admin';
 
 export interface UserProfile {
   id: string;
@@ -7,8 +7,32 @@ export interface UserProfile {
   role: Role;
   patient_id: string | null;
   organization: string | null;
+  approved: boolean;
+  approved_at: string | null;
+  declined_at: string | null;
+  review_note: string | null;
   created_at: string;
 }
+
+// Row returned by the admin_list_profiles RPC (admins only).
+export interface AdminProfileRow {
+  id: string;
+  email: string | null;
+  full_name: string | null;
+  role: Role;
+  organization: string | null;
+  approved: boolean;
+  approved_at: string | null;
+  declined_at: string | null;
+  review_note: string | null;
+  created_at: string;
+}
+
+export type ReviewDecision = 'approve' | 'decline' | 'revoke';
+export type ApprovalState = 'approved' | 'pending' | 'declined';
+
+export const approvalState = (p: { approved: boolean; declined_at: string | null }): ApprovalState =>
+  p.approved ? 'approved' : p.declined_at ? 'declined' : 'pending';
 
 // Payer / employer view: never includes ICD/CPT or clinical summary.
 export interface SponsorMessage {

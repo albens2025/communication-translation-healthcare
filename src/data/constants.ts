@@ -11,7 +11,7 @@ export const BOOKING_URL = 'https://famous.ai/api/crm/6ac10c6b7bf70cd1633f34cb/c
 export const CRM_SUBSCRIBE_URL = 'https://famous.ai/api/crm/6ac10c6b7bf70cd1633f34cb/subscribe';
 export const BRAND = 'Kindred';
 
-export type View = 'home' | 'filter' | 'clinician' | 'decide' | 'timeline' | 'cohort' | 'messages';
+export type View = 'home' | 'filter' | 'clinician' | 'decide' | 'timeline' | 'cohort' | 'messages' | 'admin';
 
 export const NAV: { id: View; label: string }[] = [
   { id: 'home', label: 'Overview' },
@@ -21,6 +21,7 @@ export const NAV: { id: View; label: string }[] = [
   { id: 'timeline', label: 'Timeline' },
   { id: 'cohort', label: 'Cohort' },
   { id: 'messages', label: 'Member Messages' },
+  { id: 'admin', label: 'Admin' },
 ];
 
 export interface RoleDef {
@@ -33,21 +34,32 @@ export interface RoleDef {
   canLinkPatients: boolean;
   canSign: boolean;
   seesCodes: boolean;
+  /** Can be chosen on the public sign-up form. */
+  selfSignup: boolean;
+  /** New accounts must be approved by an admin before getting any access. */
+  requiresApproval: boolean;
 }
 
 export const ROLES: RoleDef[] = [
-  { id: 'patient', label: 'Patient', blurb: 'Share your experience and see your own timeline.', views: ['home', 'filter', 'decide', 'timeline'], defaultChannel: 'patient-doctor', canCreatePatients: false, canLinkPatients: false, canSign: false, seesCodes: true },
-  { id: 'caregiver', label: 'Caregiver', blurb: 'Speak for a loved one you support.', views: ['home', 'filter', 'decide', 'timeline'], defaultChannel: 'caregiver-doctor', canCreatePatients: true, canLinkPatients: true, canSign: false, seesCodes: true },
-  { id: 'clinician', label: 'Clinician', blurb: 'Decode, code, sign and bill for your assigned patients.', views: ['home', 'filter', 'clinician', 'decide', 'timeline', 'cohort'], defaultChannel: 'patient-doctor', canCreatePatients: true, canLinkPatients: true, canSign: true, seesCodes: true },
-  { id: 'care_manager', label: 'Care Manager', blurb: 'Coordinate care and shared decisions for your panel.', views: ['home', 'filter', 'clinician', 'decide', 'timeline', 'cohort'], defaultChannel: 'care-manager-patient', canCreatePatients: true, canLinkPatients: true, canSign: false, seesCodes: true },
-  { id: 'payer', label: 'Payer / Health Plan', blurb: 'Receive member messages — never diagnoses or codes.', views: ['home', 'messages'], defaultChannel: 'patient-insurer', canCreatePatients: false, canLinkPatients: true, canSign: false, seesCodes: false },
-  { id: 'employer', label: 'Employer', blurb: 'Receive accommodation requests — diagnoses stay private.', views: ['home', 'messages'], defaultChannel: 'employer-patient', canCreatePatients: false, canLinkPatients: true, canSign: false, seesCodes: false },
+  { id: 'patient', label: 'Patient', blurb: 'Share your experience and see your own timeline.', views: ['home', 'filter', 'decide', 'timeline'], defaultChannel: 'patient-doctor', canCreatePatients: false, canLinkPatients: false, canSign: false, seesCodes: true, selfSignup: true, requiresApproval: false },
+  { id: 'caregiver', label: 'Caregiver', blurb: 'Speak for a loved one you support.', views: ['home', 'filter', 'decide', 'timeline'], defaultChannel: 'caregiver-doctor', canCreatePatients: true, canLinkPatients: true, canSign: false, seesCodes: true, selfSignup: true, requiresApproval: false },
+  { id: 'clinician', label: 'Clinician', blurb: 'Decode, code, sign and bill for your assigned patients.', views: ['home', 'filter', 'clinician', 'decide', 'timeline', 'cohort'], defaultChannel: 'patient-doctor', canCreatePatients: true, canLinkPatients: true, canSign: true, seesCodes: true, selfSignup: true, requiresApproval: true },
+  { id: 'care_manager', label: 'Care Manager', blurb: 'Coordinate care and shared decisions for your panel.', views: ['home', 'filter', 'clinician', 'decide', 'timeline', 'cohort'], defaultChannel: 'care-manager-patient', canCreatePatients: true, canLinkPatients: true, canSign: false, seesCodes: true, selfSignup: true, requiresApproval: true },
+  { id: 'payer', label: 'Payer / Health Plan', blurb: 'Receive member messages — never diagnoses or codes.', views: ['home', 'messages'], defaultChannel: 'patient-insurer', canCreatePatients: false, canLinkPatients: true, canSign: false, seesCodes: false, selfSignup: true, requiresApproval: true },
+  { id: 'employer', label: 'Employer', blurb: 'Receive accommodation requests — diagnoses stay private.', views: ['home', 'messages'], defaultChannel: 'employer-patient', canCreatePatients: false, canLinkPatients: true, canSign: false, seesCodes: false, selfSignup: true, requiresApproval: true },
+  { id: 'admin', label: 'Admin', blurb: 'Review and approve professional accounts.', views: ['home', 'admin'], defaultChannel: 'patient-doctor', canCreatePatients: false, canLinkPatients: false, canSign: false, seesCodes: false, selfSignup: false, requiresApproval: false },
 ];
+
+export const SIGNUP_ROLES = ROLES.filter((r) => r.selfSignup);
+export const REVIEWED_ROLES = ROLES.filter((r) => r.requiresApproval);
 
 export const roleById = (id?: string | null) => ROLES.find((r) => r.id === id);
 
 // Views available without signing in.
 export const PUBLIC_VIEWS: View[] = ['home', 'filter'];
+
+// Views available to signed-in accounts still waiting for admin approval.
+export const PENDING_VIEWS: View[] = ['home'];
 
 export interface PathwayDef {
   id: string;

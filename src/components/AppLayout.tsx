@@ -13,6 +13,8 @@ import TimelineView from '@/components/care/timeline/TimelineView';
 import CohortView from '@/components/care/cohort/CohortView';
 import MessagesView from '@/components/care/messages/MessagesView';
 import AuthModal from '@/components/care/auth/AuthModal';
+import PendingApproval from '@/components/care/auth/PendingApproval';
+import AdminView from '@/components/care/admin/AdminView';
 import { LinkPatientDialog } from '@/components/care/auth/AccountMenu';
 import AddPatientDialog from '@/components/care/AddPatientDialog';
 
@@ -41,35 +43,43 @@ const EmptyPanel: React.FC = () => {
 
 const AppLayout: React.FC = () => {
   const { view, loading, patients } = useCare();
-  const { profile } = useAuth();
-  const showEmptyPanel = !!profile && profile.role !== 'patient' && patients.length === 0 && PANEL_VIEWS.includes(view);
+  const { profile, isPendingApproval } = useAuth();
+  const showEmptyPanel = !!profile && !isPendingApproval && profile.role !== 'patient' && profile.role !== 'admin'
+    && patients.length === 0 && PANEL_VIEWS.includes(view);
 
   return (
     <div className="min-h-screen bg-cream text-ink flex flex-col">
       <Header />
       <main className="flex-1">
-        {view === 'home' && (
+        {isPendingApproval ? (
+          <PendingApproval />
+        ) : (
           <>
-            <Hero />
-            <HowItWorks />
-            <ChannelsSection />
-            <PathwaysSection />
-            <PatientsSection />
-            <PilotSection />
-          </>
-        )}
-        {view !== 'home' && loading && (
-          <div className="mx-auto max-w-7xl px-6 py-24 text-center text-stone-500 font-mono text-sm">Loading care records...</div>
-        )}
-        {!loading && showEmptyPanel && <EmptyPanel />}
-        {!loading && !showEmptyPanel && (
-          <>
-            {view === 'filter' && <FilterView />}
-            {view === 'clinician' && <ClinicianView />}
-            {view === 'decide' && <DecisionView />}
-            {view === 'timeline' && <TimelineView />}
-            {view === 'cohort' && <CohortView />}
-            {view === 'messages' && <MessagesView />}
+            {view === 'home' && (
+              <>
+                <Hero />
+                <HowItWorks />
+                <ChannelsSection />
+                <PathwaysSection />
+                <PatientsSection />
+                <PilotSection />
+              </>
+            )}
+            {view === 'admin' && <AdminView />}
+            {view !== 'home' && view !== 'admin' && loading && (
+              <div className="mx-auto max-w-7xl px-6 py-24 text-center text-stone-500 font-mono text-sm">Loading care records...</div>
+            )}
+            {!loading && showEmptyPanel && <EmptyPanel />}
+            {!loading && !showEmptyPanel && (
+              <>
+                {view === 'filter' && <FilterView />}
+                {view === 'clinician' && <ClinicianView />}
+                {view === 'decide' && <DecisionView />}
+                {view === 'timeline' && <TimelineView />}
+                {view === 'cohort' && <CohortView />}
+                {view === 'messages' && <MessagesView />}
+              </>
+            )}
           </>
         )}
       </main>

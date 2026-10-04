@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Loader2, Mail, Lock, User, ShieldCheck, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Mail, Lock, User, ShieldCheck, Eye, EyeOff, Hourglass, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useAuth } from '@/context/AuthContext';
-import { ROLES } from '@/data/constants';
+import { ROLES, SIGNUP_ROLES } from '@/data/constants';
 import { subscribeToCrm } from '@/lib/api';
 import type { Role } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -13,6 +13,7 @@ const field = 'w-full rounded-xl border border-stone-200 bg-white pl-10 pr-3 py-
 const AuthModal: React.FC = () => {
   const { authOpen, authMode, closeAuth, openAuth, signIn, signUp } = useAuth();
   const [fullName, setFullName] = useState('');
+  const [organization, setOrganization] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
@@ -22,6 +23,9 @@ const AuthModal: React.FC = () => {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [confirmSent, setConfirmSent] = useState(false);
+
+  const selectedRole = ROLES.find((r) => r.id === role);
+  const needsReview = !!selectedRole?.requiresApproval;
 
   useEffect(() => { setError(''); setConfirmSent(false); }, [authMode, authOpen]);
 
@@ -38,16 +42,20 @@ const AuthModal: React.FC = () => {
         closeAuth();
       } else {
         if (!fullName.trim()) { setError('Please enter your name.'); setBusy(false); return; }
-        const { needsConfirmation } = await signUp({ email, password, fullName: fullName.trim(), role });
+        if (needsReview && !organization.trim()) { setError('Please enter your organization so an admin can verify you.'); setBusy(false); return; }
+        const { needsConfirmation } = await signUp({
+          email, password, fullName: fullName.trim(), role,
+          organization: needsReview ? organization.trim() : undefined,
+        });
         // Add the new account to the CRM contact list (non-blocking).
         subscribeToCrm({
           email, name: fullName.trim(), phone: phone.trim() || undefined, sms_opt_in: smsOptIn,
-          source: 'signup', tags: ['account-signup', `role:${role}`],
+          source: 'signup', tags: ['account-signup', `role:${role}`, ...(needsReview ? ['pending-approval'] : [])],
         }).catch(() => undefined);
         if (needsConfirmation) {
           setConfirmSent(true);
         } else {
-          toast.success('Account created');
+          toast.success(needsReview ? 'Account created — waiting for admin approval' : 'Account created');
           closeAuth();
         }
       }
@@ -90,19 +98,34 @@ const AuthModal: React.FC = () => {
                 <div>
                   <p className="text-xs font-semibold text-stone-500 mb-2">I am a...</p>
                   <div className="grid grid-cols-2 gap-2">
-                    {ROLES.map((r) => (
+                    {SIGNUP_ROLES.map((r) => (
                       <button key={r.id} type="button" onClick={() => setRole(r.id)}
                         className={cn('text-left rounded-xl border p-2.5 transition', role === r.id ? 'border-teal-700 bg-teal-50 ring-2 ring-teal-700/15' : 'border-stone-200 hover:border-teal-600/40')}>
-                        <p className="text-sm font-semibold text-ink">{r.label}</p>
+                        <p className="text-sm font-semibold text-ink flex items-center gap-1.5">
+                          {r.label}
+                          {r.requiresApproval && <span className="rounded-full bg-amber-100 text-amber-800 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide">Review</span>}
+                        </p>
                         <p className="text-[11px] text-stone-500 leading-snug">{r.blurb}</p>
                       </button>
                     ))}
                   </div>
                 </div>
+                {needsReview && (
+                  <p className="flex items-start gap-2 rounded-xl bg-amber-50 border border-amber-100 p-3 text-xs text-amber-900">
+                    <Hourglass className="h-4 w-4 shrink-0 mt-0.5" />
+                    {selectedRole?.label} accounts are reviewed by an administrator before they can open any records. You can sign in right away and track your status.
+                  </p>
+                )}
                 <div className="relative">
                   <User className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
                   <input className={field} placeholder="Full name" value={fullName} onChange={(e) => setFullName(e.target.value)} aria-label="Full name" />
                 </div>
+                {needsReview && (
+                  <div className="relative">
+                    <Building2 className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+                    <input className={field} placeholder="Organization (practice, plan or company)" value={organization} onChange={(e) => setOrganization(e.target.value)} aria-label="Organization" />
+                  </div>
+                )}
               </>
             )}
             <div className="relative">

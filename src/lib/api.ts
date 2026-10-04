@@ -1,6 +1,8 @@
 import { supabase } from '@/lib/supabase';
 import { CRM_SUBSCRIBE_URL, feeFor } from '@/data/constants';
-import type { CptCode, Decoded, Encounter, Patient, Role, SponsorMessage, UserProfile } from '@/lib/types';
+import type {
+  AdminProfileRow, CptCode, Decoded, Encounter, Patient, ReviewDecision, Role, SponsorMessage, UserProfile,
+} from '@/lib/types';
 
 // ---------- Auth & profiles ----------
 export async function fetchMyProfile(userId: string): Promise<UserProfile | null> {
@@ -9,8 +11,25 @@ export async function fetchMyProfile(userId: string): Promise<UserProfile | null
   return (data as UserProfile) ?? null;
 }
 
-export async function ensureProfile(role: Role, fullName: string, email: string): Promise<UserProfile> {
-  const { data, error } = await supabase.rpc('ensure_my_profile', { p_role: role, p_full_name: fullName, p_email: email });
+export async function ensureProfile(role: Role, fullName: string, email: string, organization?: string): Promise<UserProfile> {
+  const { data, error } = await supabase.rpc('ensure_my_profile', {
+    p_role: role, p_full_name: fullName, p_email: email, p_organization: organization || null,
+  });
+  if (error) throw error;
+  return (Array.isArray(data) ? data[0] : data) as UserProfile;
+}
+
+// ---------- Admin (server enforces admin-only) ----------
+export async function adminListProfiles(): Promise<AdminProfileRow[]> {
+  const { data, error } = await supabase.rpc('admin_list_profiles');
+  if (error) throw error;
+  return (data ?? []) as AdminProfileRow[];
+}
+
+export async function adminReviewProfile(userId: string, decision: ReviewDecision, note?: string): Promise<UserProfile> {
+  const { data, error } = await supabase.rpc('admin_review_profile', {
+    p_user_id: userId, p_decision: decision, p_note: note || null,
+  });
   if (error) throw error;
   return (Array.isArray(data) ? data[0] : data) as UserProfile;
 }

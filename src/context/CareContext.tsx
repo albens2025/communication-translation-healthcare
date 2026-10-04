@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { PUBLIC_VIEWS, type View } from '@/data/constants';
+import { PENDING_VIEWS, PUBLIC_VIEWS, type View } from '@/data/constants';
 import type { Encounter, Patient, SponsorMessage } from '@/lib/types';
 import {
   claimDemoPanel, createPatient, errMsg, fetchEncounters, fetchPatients, fetchSponsorMessages,
@@ -33,7 +33,7 @@ interface CareCtx {
 const Ctx = createContext<CareCtx | null>(null);
 
 export const CareProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { profile, roleDef, loading: authLoading, openAuth } = useAuth();
+  const { profile, roleDef, isPendingApproval, loading: authLoading, openAuth } = useAuth();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [encounters, setEncounters] = useState<Encounter[]>([]);
   const [sponsorMessages, setSponsorMessages] = useState<SponsorMessage[]>([]);
@@ -43,22 +43,28 @@ export const CareProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [activeEncounterId, setActiveEncounterId] = useState<string | null>(null);
 
   const canView = useCallback(
-    (v: View) => (roleDef ? roleDef.views.includes(v) : PUBLIC_VIEWS.includes(v)),
-    [roleDef]
+    (v: View) => {
+      if (!roleDef) return PUBLIC_VIEWS.includes(v);
+      if (isPendingApproval) return PENDING_VIEWS.includes(v);
+      return roleDef.views.includes(v);
+    },
+    [roleDef, isPendingApproval]
   );
 
   const setView = useCallback((v: View) => {
     if (!canView(v)) {
       if (!profile) { openAuth('signin'); toast.message('Please sign in to continue'); }
+      else if (isPendingApproval) toast.message('Your account is waiting for admin approval');
       else toast.error('Your role does not have access to that area');
       return;
     }
     setViewState(v);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [canView, profile, openAuth]);
+  }, [canView, profile, openAuth, isPendingApproval]);
 
   const refresh = useCallback(async () => {
-    if (!profile) {
+    // Signed out, awaiting approval, or admin: no care records to load (RLS would return none anyway).
+    if (!profile || !profile.approved || profile.role === 'admin') {
       setPatients([]); setEncounters([]); setSponsorMessages([]);
       setLoading(false);
       return;

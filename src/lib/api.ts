@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { CRM_SUBSCRIBE_URL, feeFor } from '@/data/constants';
 import type {
-  AdminProfileRow, CptCode, Decoded, Encounter, Patient, ReviewDecision, Role, SponsorMessage, UserProfile,
+  AdminProfileRow, CptCode, Decoded, Encounter, NotifyResult, Patient, ReviewDecision, Role, SponsorMessage, UserProfile,
 } from '@/lib/types';
 
 // ---------- Auth & profiles ----------
@@ -32,6 +32,20 @@ export async function adminReviewProfile(userId: string, decision: ReviewDecisio
   });
   if (error) throw error;
   return (Array.isArray(data) ? data[0] : data) as UserProfile;
+}
+
+// Emails (and texts, if opted in) the user about an approve/decline decision,
+// tags their CRM contact 'approved' / 'declined', and stamps last_notified_at.
+export async function notifyReviewDecision(userId: string, resend = false): Promise<NotifyResult> {
+  const { data, error } = await supabase.functions.invoke('notify-review-decision', { body: { user_id: userId, resend } });
+  if (error) {
+    // Surface the function's JSON error message when available.
+    const ctx = (error as { context?: Response }).context;
+    const body = ctx && typeof ctx.json === 'function' ? await ctx.json().catch(() => null) : null;
+    throw new Error(body?.error || error.message);
+  }
+  if (data?.error) throw new Error(data.error);
+  return data as NotifyResult;
 }
 
 // ---------- Patients (RLS-scoped) ----------

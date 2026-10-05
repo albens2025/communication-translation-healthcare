@@ -14,6 +14,8 @@ export interface UserProfile {
   created_at: string;
 }
 
+export type NotifyStatus = 'queued' | 'partial' | 'failed';
+
 // Row returned by the admin_list_profiles RPC (admins only).
 export interface AdminProfileRow {
   id: string;
@@ -26,6 +28,21 @@ export interface AdminProfileRow {
   declined_at: string | null;
   review_note: string | null;
   created_at: string;
+  last_notified_at: string | null;
+  last_notified_decision: 'approved' | 'declined' | null;
+  last_notified_channels: string[] | null;
+  last_notify_status: NotifyStatus | null;
+  last_notify_error: string | null;
+}
+
+// Response from the notify-review-decision edge function.
+export interface NotifyResult {
+  status: NotifyStatus;
+  decision: 'approved' | 'declined';
+  channels: string[];
+  sms_skipped: string | null;
+  tagged: boolean;
+  errors: string[];
 }
 
 export type ReviewDecision = 'approve' | 'decline' | 'revoke';

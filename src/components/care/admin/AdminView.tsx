@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, Clock, Download, RefreshCw, Search, ShieldCheck, ShieldX, UserCheck, UserX, Undo2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { adminListProfiles, adminReviewProfile, errMsg } from '@/lib/api';
+import { adminListProfiles, adminReviewProfile, errMsg, notifyReviewDecision } from '@/lib/api';
 import { REVIEWED_ROLES, roleById } from '@/data/constants';
-import { approvalState, type AdminProfileRow, type ApprovalState, type ReviewDecision } from '@/lib/types';
+import { approvalState, type AdminProfileRow, type ApprovalState, type NotifyResult, type ReviewDecision } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import ReviewDialog from './ReviewDialog';
+import NotifyCell, { ago } from './NotifyCell';
 
 type Tab = ApprovalState | 'all';
 const TABS: { id: Tab; label: string }[] = [
@@ -21,11 +22,10 @@ const STATE_BADGE: Record<ApprovalState, string> = {
   declined: 'bg-stone-200 text-stone-700',
 };
 
-const ago = (d: string) => {
-  const h = Math.round((Date.now() - new Date(d).getTime()) / 36e5);
-  if (h < 1) return 'just now';
-  if (h < 24) return `${h}h ago`;
-  return `${Math.round(h / 24)}d ago`;
+const describeNotice = (r: NotifyResult) => {
+  const via = r.channels.map((c) => (c === 'sms' ? 'text' : c)).join(' + ');
+  const sms = r.sms_skipped ? ` (no text: ${r.sms_skipped})` : '';
+  return `${via ? `Notice queued by ${via}` : 'No notice sent'}${sms}`;
 };
 
 const AdminView: React.FC = () => {
@@ -36,12 +36,13 @@ const AdminView: React.FC = () => {
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [target, setTarget] = useState<AdminProfileRow | null>(null);
   const [decision, setDecision] = useState<ReviewDecision | null>(null);
+  const [notifying, setNotifying] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (quiet = false) => {
+    if (!quiet) setLoading(true);
     try { setRows(await adminListProfiles()); }
     catch (e) { toast.error(errMsg(e)); }
-    finally { setLoading(false); }
+    finally { if (!quiet) setLoading(false); }
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -67,22 +68,40 @@ const AdminView: React.FC = () => {
   const open = (r: AdminProfileRow, d: ReviewDecision) => { setTarget(r); setDecision(d); };
   const close = () => { setTarget(null); setDecision(null); };
 
-  const confirm = async (note: string) => {
+  // Sends the email/SMS + CRM tag, then refreshes so "Last notified" updates.
+  const sendNotice = async (userId: string, resend: boolean) => {
+    setNotifying(userId);
+    try {
+      const res = await notifyReviewDecision(userId, resend);
+      if (res.status === 'failed') toast.error(`Notice failed: ${res.errors.join('; ') || 'unknown error'}`);
+      else if (res.status === 'partial') toast.warning(`${describeNotice(res)}. Some messages failed: ${res.errors.join('; ')}`);
+      else toast.success(describeNotice(res));
+    } catch (e) {
+      toast.error(`Could not notify: ${errMsg(e)}`);
+    } finally {
+      setNotifying(null);
+      await load(true);
+    }
+  };
+
+  const confirm = async (note: string, notify: boolean) => {
     if (!target || !decision) return;
     try {
       const updated = await adminReviewProfile(target.id, decision, note);
       setRows((prev) => prev.map((r) => (r.id === updated.id ? { ...r, ...updated } : r)));
       toast.success(decision === 'approve' ? `${target.full_name || target.email} approved` : decision === 'decline' ? 'Request declined' : 'Access revoked');
+      const id = target.id;
       close();
+      if (notify && decision !== 'revoke') await sendNotice(id, false);
     } catch (e) {
       toast.error(errMsg(e));
     }
   };
 
   const exportCsv = () => {
-    const head = ['name', 'email', 'role', 'organization', 'status', 'signed_up', 'approved_at', 'declined_at', 'note'];
+    const head = ['name', 'email', 'role', 'organization', 'status', 'signed_up', 'approved_at', 'declined_at', 'note', 'last_notified_at', 'last_notified_decision', 'last_notified_channels', 'last_notify_status'];
     const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-    const lines = visible.map((r) => [r.full_name, r.email, r.role, r.organization, approvalState(r), r.created_at, r.approved_at, r.declined_at, r.review_note].map(esc).join(','));
+    const lines = visible.map((r) => [r.full_name, r.email, r.role, r.organization, approvalState(r), r.created_at, r.approved_at, r.declined_at, r.review_note, r.last_notified_at, r.last_notified_decision, (r.last_notified_channels ?? []).join('+'), r.last_notify_status].map(esc).join(','));
     const blob = new Blob([[head.join(','), ...lines].join('\n')], { type: 'text/csv' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -107,7 +126,7 @@ const AdminView: React.FC = () => {
         </div>
         <div className="flex gap-2">
           <button onClick={exportCsv} disabled={!visible.length} className="inline-flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-4 py-2 text-sm font-semibold hover:bg-stone-50 disabled:opacity-50"><Download className="h-4 w-4" /> CSV</button>
-          <button onClick={load} className="inline-flex items-center gap-2 rounded-xl bg-teal-700 hover:bg-teal-800 text-white px-4 py-2 text-sm font-semibold"><RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} /> Refresh</button>
+          <button onClick={() => load()} className="inline-flex items-center gap-2 rounded-xl bg-teal-700 hover:bg-teal-800 text-white px-4 py-2 text-sm font-semibold"><RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} /> Refresh</button>
         </div>
       </div>
 
@@ -161,6 +180,7 @@ const AdminView: React.FC = () => {
                   <th className="px-4 py-3 font-semibold">Organization</th>
                   <th className="px-4 py-3 font-semibold">Signed up</th>
                   <th className="px-4 py-3 font-semibold">Status</th>
+                  <th className="px-4 py-3 font-semibold">Last notified</th>
                   <th className="px-4 py-3 font-semibold text-right">Actions</th>
                 </tr>
               </thead>
@@ -179,6 +199,7 @@ const AdminView: React.FC = () => {
                       <td className="px-4 py-3 text-stone-600">{r.organization || '—'}</td>
                       <td className="px-4 py-3 text-stone-500 whitespace-nowrap" title={new Date(r.created_at).toLocaleString()}>{ago(r.created_at)}</td>
                       <td className="px-4 py-3"><span className={cn('rounded-full px-2.5 py-1 text-xs font-semibold capitalize', STATE_BADGE[st])}>{isAdminRow ? 'admin' : st}</span></td>
+                      <td className="px-4 py-3"><NotifyCell row={r} busy={notifying === r.id} onResend={(row) => sendNotice(row.id, true)} /></td>
                       <td className="px-4 py-3">
                         <div className="flex justify-end gap-2">
                           {!isAdminRow && st !== 'approved' && (

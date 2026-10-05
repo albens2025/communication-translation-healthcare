@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Mail } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import type { AdminProfileRow, ReviewDecision } from '@/lib/types';
 import { roleById } from '@/data/constants';
@@ -15,20 +15,22 @@ interface Props {
   target: AdminProfileRow | null;
   decision: ReviewDecision | null;
   onClose: () => void;
-  onConfirm: (note: string) => Promise<void>;
+  onConfirm: (note: string, notify: boolean) => Promise<void>;
 }
 
 const ReviewDialog: React.FC<Props> = ({ target, decision, onClose, onConfirm }) => {
   const [note, setNote] = useState('');
+  const [notify, setNotify] = useState(true);
   const [busy, setBusy] = useState(false);
-  useEffect(() => { setNote(''); }, [target, decision]);
+  useEffect(() => { setNote(''); setNotify(true); }, [target, decision]);
   if (!target || !decision) return null;
   const c = COPY[decision];
+  const canNotify = decision !== 'revoke';
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
-    try { await onConfirm(note.trim()); } finally { setBusy(false); }
+    try { await onConfirm(note.trim(), canNotify && notify); } finally { setBusy(false); }
   };
 
   return (
@@ -45,15 +47,27 @@ const ReviewDialog: React.FC<Props> = ({ target, decision, onClose, onConfirm })
         </div>
         <form onSubmit={submit} className="space-y-3">
           <label className="block text-xs font-semibold text-stone-500">
-            Note {decision === 'approve' ? '(optional, internal)' : '(optional, shown to the user)'}
+            Note {canNotify ? '(optional, shown to the user and included in the email/text)' : '(optional, shown to the user)'}
             <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} maxLength={500}
-              placeholder={decision === 'approve' ? 'e.g. NPI verified' : 'e.g. Could not verify your organization'}
+              placeholder={decision === 'approve' ? 'e.g. NPI verified. Welcome aboard.' : 'e.g. Could not verify your organization'}
               className="mt-1 w-full rounded-xl border border-stone-200 px-3 py-2 text-sm font-normal text-ink outline-none focus:ring-2 focus:ring-teal-600" />
           </label>
+          {canNotify && (
+            <label className="flex items-start gap-2.5 rounded-xl border border-stone-200 p-3 cursor-pointer hover:bg-stone-50">
+              <input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} className="mt-0.5 h-4 w-4 accent-teal-700" />
+              <span className="text-sm">
+                <span className="flex items-center gap-1.5 font-semibold text-ink"><Mail className="h-3.5 w-3.5" /> Notify {target.full_name?.split(' ')[0] || 'them'}</span>
+                <span className="block text-xs text-stone-500">
+                  Sends an email, plus a text if they opted in to SMS, and tags their CRM contact{' '}
+                  <span className="font-mono text-stone-700">{decision === 'approve' ? 'approved' : 'declined'}</span>.
+                </span>
+              </span>
+            </label>
+          )}
           <div className="flex justify-end gap-2">
             <button type="button" onClick={onClose} className="rounded-xl px-4 py-2 text-sm font-semibold text-stone-600 hover:bg-stone-100">Cancel</button>
             <button type="submit" disabled={busy} className={cn('inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white disabled:opacity-60', c.tone)}>
-              {busy && <Loader2 className="h-4 w-4 animate-spin" />}{c.cta}
+              {busy && <Loader2 className="h-4 w-4 animate-spin" />}{c.cta}{canNotify && notify ? ' & notify' : ''}
             </button>
           </div>
         </form>
